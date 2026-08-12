@@ -1,0 +1,22 @@
+restic:
+  repo: /home/backup-user/backups/restic-repo
+  password_file: /root/.restic-env
+
+backup_user: backup-user
+
+databases:
+  - type: mysql
+    names:
+      - app_db
+      - shop_db
+  - type: postgres
+    names:
+      - analytics
+
+schedule: "02:00" # UTC, server backup time
+
+client:
+  remote: backup-user@192.168.1.10
+  remote_repo: /home/backup-user/backups/restic-repo
+  local_path: ~/backups/mysql-restic-repo
+  schedule: "04:00" # when the client pulls the backup

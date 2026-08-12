@@ -1,0 +1,6 @@
+/dist/
+/bin/
+backup.yaml
+backup-client.yaml
+*.local.yaml
+.DS_Store

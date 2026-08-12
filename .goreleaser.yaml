@@ -1,0 +1,88 @@
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: backupctl
+    main: ./cmd/backupctl
+    binary: backupctl
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+
+archives:
+  - id: backupctl
+    formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+nfpms:
+  - id: backupctl
+    package_name: backupctl
+    vendor: Solo-it
+    homepage: https://github.com/Solo-it/backupctl
+    maintainer: Solo-it <sas@solo-it.ru>
+    description: >-
+      CLI tool for setting up restic-based MySQL/PostgreSQL backups between
+      a server and a client that pulls them over SSH.
+    license: MIT
+    formats:
+      - deb
+      - rpm
+      - apk
+    bindir: /usr/bin
+    contents:
+      - src: ./backup.example.yaml
+        dst: /usr/share/doc/backupctl/backup.example.yaml
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+brews:
+  - name: backupctl
+    repository:
+      owner: Solo-it
+      name: homebrew-tap
+    homepage: https://github.com/Solo-it/backupctl
+    description: CLI tool for setting up restic-based database backups
+    license: MIT
+
+release:
+  github:
+    owner: Solo-it
+    name: backupctl
+  footer: |
+    ## Install
+
+    ```bash
+    # Debian/Ubuntu (apt repo, set up once)
+    echo "deb [trusted=yes] https://solo-it.github.io/backupctl/apt stable main" | sudo tee /etc/apt/sources.list.d/backupctl.list
+    sudo apt update && sudo apt install backupctl
+
+    # Homebrew
+    brew install Solo-it/tap/backupctl
+
+    # Go
+    go install github.com/Solo-it/backupctl/cmd/backupctl@{{ .Tag }}
+    ```
