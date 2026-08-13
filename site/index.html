@@ -212,8 +212,11 @@
 
 <script src="https://cdn.jsdelivr.net/npm/asciinema-player@3/dist/bundle/asciinema-player.min.js"></script>
 <script>
+  // No explicit theme — the recording already carries the actual terminal
+  // palette from when it was made (see the cast file's own "theme" header),
+  // so colors (mc/mcedit blue etc.) match what was really on screen instead
+  // of a forced player theme like monokai reinterpreting them harsher.
   AsciinemaPlayer.create('./demo.cast', document.getElementById('demo-player'), {
-    theme: 'monokai',
     autoPlay: true,
     loop: true,
     idleTimeLimit: 2,
