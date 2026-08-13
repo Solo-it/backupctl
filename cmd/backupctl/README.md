@@ -1,11 +1,11 @@
 # backupctl
 
-Back up your sites' and microservices' databases — MySQL and PostgreSQL —
-in three commands. The server (any machine with MySQL/PostgreSQL) dumps
-the databases and stores them locally in a restic repository. A client
-(your Mac or another server) periodically pulls that repository over
-`rsync` via SSH. The only way in is an SSH key — the dedicated
-`backup-user` has no password at all.
+Back up your sites' and microservices' databases and files — MySQL,
+PostgreSQL, Redis, RabbitMQ, plus plain directories (site files, a
+user's home directory) — in three commands. The server dumps everything
+into a local restic repository. A client (your Mac or another server)
+periodically pulls that repository over `rsync` via SSH. The only way in
+is an SSH key — the dedicated `backup-user` has no password at all.
 
 Русская версия: `backupctl --info -lang=ru` or [README.ru.md](https://github.com/Solo-it/backupctl/blob/main/cmd/backupctl/README.ru.md).
 Site with a live demo: [solo-it.github.io/backupctl](https://solo-it.github.io/backupctl/).
@@ -55,7 +55,7 @@ go install github.com/Solo-it/backupctl/cmd/backupctl@latest
 | `--init-client-launchd` | client (Mac) | SSH key + pull script + `launchd` plist |
 | `--init-client-systemd` | client (Linux) | SSH key + pull script + systemd timer |
 | `--init-client-task-scheduler` | client (Windows) | SSH key + pull script (PowerShell) + Task Scheduler (schtasks) |
-| `--version` / `-v` | — | version |
+| `--version` / `-v` | — | version (also checks GitHub for a newer release, best-effort) |
 | `--help` / `-h` | — | flag reference |
 | `--info` | — | this README, embedded in the binary |
 
@@ -191,6 +191,60 @@ unit/timer, though, are rewritten unconditionally every time — so the new
 database is picked up by the very next scheduled run. There's no separate
 "update" command; `--init-server` is exactly that.
 
+## Redis and RabbitMQ
+
+`databases:` also takes `type: redis` and `type: rabbitmq` — `names:` is
+ignored for both (there's one instance to dump, nothing to enumerate).
+
+- **Redis**: `BGSAVE`s and copies the resulting RDB file. Redis compresses
+  RDB files by default (`rdbcompression yes`), which badly hurts restic's
+  deduplication between backups — a single changed key can shift the
+  entire compressed byte stream, so almost nothing matches the previous
+  snapshot. `--init-server` handles this for you: it turns
+  `rdbcompression` off for the duration of the dump and restores it to
+  whatever it actually was before (not a hardcoded value) — restic
+  compresses the repository itself anyway, after deduplication, which is
+  the right order. ACLs aren't part of the RDB, so `acl list` and the
+  full effective config (`config get '*'`) are saved alongside it.
+- **RabbitMQ**: `rabbitmqctl export_definitions` — already covers users
+  and permissions (the ACL equivalent), vhosts, policies, exchanges,
+  queues and bindings in one file, nothing else needed.
+
+## Files — sites, CMS installs, user directories
+
+`files:` backs up plain directory trees in the same restic repository,
+alongside the database dumps — no separate repo, no extra infrastructure.
+`preset` picks a built-in exclude list for known junk (caches, temp
+files, already-compressed archives) so backups don't balloon with things
+you don't need back; `exclude` adds more patterns on top of it. Supported
+presets: `wordpress`, `bitrix`, `joomla`, `drupal`, `user` (a generic
+home directory), or `none` for no built-in excludes at all.
+
+Dependencies (`vendor/`, `node_modules/`) are deliberately **not**
+excluded by any preset — restoring a site without them means running
+`composer install`/`npm install` by hand during an incident, and they
+don't dominate backup size the way caches do.
+
+```yaml
+files:
+  - path: /var/www/mysite
+    preset: wordpress
+    exclude: ["*.mp4"]        # extra patterns on top of the preset, optional
+  - path: /home/deploy
+    preset: user
+```
+
+## Tags
+
+Every backup run is tagged in restic with what it actually covered —
+one tag per database type configured (`mysql`, `redis`, ...), plus
+`files` and the preset name (e.g. `wordpress`) for each `files:` entry.
+Filter snapshots by what you're looking for:
+
+```bash
+restic -r /home/backup-user/backups/restic-repo --password-file /root/.restic-env snapshots --tag redis
+```
+
 ## backup.yaml format
 
 ```yaml
@@ -200,7 +254,7 @@ restic:
 
 backup_user: backup-user
 
-databases:           # supported type: mysql, postgres
+databases:           # supported type: mysql, postgres, redis, rabbitmq
   - type: mysql
     names:
       - app_db
@@ -208,6 +262,13 @@ databases:           # supported type: mysql, postgres
   - type: postgres
     names:
       - analytics
+  - type: redis
+  - type: rabbitmq
+
+files:                # optional — see "Files" above
+  - path: /var/www/mysite
+    preset: wordpress
+    exclude: ["*.mp4"]
 
 schedule: "02:00"   # UTC, server dump+backup time
 

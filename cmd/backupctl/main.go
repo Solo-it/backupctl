@@ -1,5 +1,5 @@
-// Command backupctl sets up restic-based database backups on servers and
-// on the clients that pull them.
+// Command backupctl sets up restic-based backups (databases and plain
+// files) on servers and on the clients that pull them.
 package main
 
 import (
@@ -11,8 +11,9 @@ import (
 
 const usageTextEN = `Usage: backupctl <command> [flags]
 
-backupctl sets up restic-based database backups (MySQL, PostgreSQL) on
-servers and on the clients that pull them.
+backupctl sets up restic-based backups (MySQL, PostgreSQL, Redis,
+RabbitMQ, plus plain site/user files) on servers and on the clients that
+pull them.
 
 Commands:
   --version, -v             backupctl version
@@ -81,8 +82,9 @@ Examples:
 
 const usageTextRU = `Использование: backupctl <команда> [флаги]
 
-backupctl настраивает restic-бэкапы БД (MySQL, PostgreSQL) на серверах
-и клиентах, которые их забирают.
+backupctl настраивает restic-бэкапы (MySQL, PostgreSQL, Redis, RabbitMQ,
+а также обычные файлы сайтов/пользователей) на серверах и клиентах,
+которые их забирают.
 
 Команды:
   --version, -v             версия backupctl

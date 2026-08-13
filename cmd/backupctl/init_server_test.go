@@ -175,3 +175,124 @@ func TestDetectPackageManager_NoneAvailable(t *testing.T) {
 		t.Error("expected ok=false when no package manager is found")
 	}
 }
+
+func TestBuildBackupScript_Redis(t *testing.T) {
+	cfg := &Config{
+		Restic:    ResticConfig{Repo: "/repo", PasswordFile: "/pwd"},
+		Databases: []DatabaseConfig{{Type: "redis"}},
+	}
+	script, err := buildBackupScript(cfg)
+	if err != nil {
+		t.Fatalf("buildBackupScript: %v", err)
+	}
+	for _, want := range []string{
+		"redis-cli config set rdbcompression no",
+		"redis-cli bgsave",
+		"redis-cli config set rdbcompression \"$REDIS_RDBCOMPRESSION_ORIG\"",
+		"redis-cli acl list",
+		"redis-cli config get '*'",
+	} {
+		if !strings.Contains(script, want) {
+			t.Errorf("redis backup script does not contain %q:\n%s", want, script)
+		}
+	}
+}
+
+func TestBuildBackupScript_Rabbitmq(t *testing.T) {
+	cfg := &Config{
+		Restic:    ResticConfig{Repo: "/repo", PasswordFile: "/pwd"},
+		Databases: []DatabaseConfig{{Type: "rabbitmq"}},
+	}
+	script, err := buildBackupScript(cfg)
+	if err != nil {
+		t.Fatalf("buildBackupScript: %v", err)
+	}
+	if !strings.Contains(script, "rabbitmqctl export_definitions") {
+		t.Errorf("rabbitmq backup script missing export_definitions:\n%s", script)
+	}
+}
+
+func TestBuildBackupScript_FilesAddsPathsAndExcludeFile(t *testing.T) {
+	cfg := &Config{
+		Restic: ResticConfig{Repo: "/repo", PasswordFile: "/pwd"},
+		Files: []FileBackupConfig{
+			{Path: "/var/www/site", Preset: "wordpress"},
+		},
+	}
+	script, err := buildBackupScript(cfg)
+	if err != nil {
+		t.Fatalf("buildBackupScript: %v", err)
+	}
+	for _, want := range []string{
+		"\"/var/www/site\"",
+		"--exclude-file=" + backupExcludesPath,
+		"wp-content/cache/**",
+		"cat > " + backupExcludesPath,
+	} {
+		if !strings.Contains(script, want) {
+			t.Errorf("backup script does not contain %q:\n%s", want, script)
+		}
+	}
+}
+
+func TestBuildBackupScript_NoFilesNoExcludeFile(t *testing.T) {
+	cfg := &Config{
+		Restic:    ResticConfig{Repo: "/repo", PasswordFile: "/pwd"},
+		Databases: []DatabaseConfig{{Type: "mysql", Names: []string{"x"}}},
+	}
+	script, err := buildBackupScript(cfg)
+	if err != nil {
+		t.Fatalf("buildBackupScript: %v", err)
+	}
+	if strings.Contains(script, "--exclude-file") {
+		t.Errorf("no files: configured, should not reference an exclude file:\n%s", script)
+	}
+}
+
+func TestBuildBackupScript_TagsAppended(t *testing.T) {
+	cfg := &Config{
+		Restic: ResticConfig{Repo: "/repo", PasswordFile: "/pwd"},
+		Databases: []DatabaseConfig{
+			{Type: "mysql", Names: []string{"x"}},
+			{Type: "redis"},
+		},
+		Files: []FileBackupConfig{
+			{Path: "/var/www/site", Preset: "wordpress"},
+		},
+	}
+	script, err := buildBackupScript(cfg)
+	if err != nil {
+		t.Fatalf("buildBackupScript: %v", err)
+	}
+	for _, want := range []string{"--tag files", "--tag mysql", "--tag redis", "--tag wordpress"} {
+		if !strings.Contains(script, want) {
+			t.Errorf("backup script does not contain %q:\n%s", want, script)
+		}
+	}
+}
+
+func TestBuildBackupTags_DeduplicatedAndSorted(t *testing.T) {
+	cfg := &Config{
+		Databases: []DatabaseConfig{
+			{Type: "mysql", Names: []string{"a"}},
+			{Type: "mysql", Names: []string{"b"}},
+			{Type: "postgres", Names: []string{"c"}},
+		},
+		Files: []FileBackupConfig{
+			{Path: "/a", Preset: "wordpress"},
+			{Path: "/b", Preset: "wordpress"},
+			{Path: "/c", Preset: "none"},
+		},
+	}
+	got := buildBackupTags(cfg)
+	want := []string{"files", "mysql", "postgres", "wordpress"}
+	if len(got) != len(want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("got %v, want %v", got, want)
+			break
+		}
+	}
+}

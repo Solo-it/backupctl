@@ -64,7 +64,18 @@ func buildConfigYAML(p GenConfigParams) (string, error) {
 		}
 		sb.WriteString("\n")
 
-		sb.WriteString(fmt.Sprintf("schedule: %q # UTC, server backup time\n", p.ServerSchedule))
+		sb.WriteString(fmt.Sprintf("schedule: %q # UTC, server backup time\n\n", p.ServerSchedule))
+
+		sb.WriteString("# files: backs up a plain directory tree (site files, a user's home\n")
+		sb.WriteString("# directory) in the same restic repository, alongside the database dumps.\n")
+		sb.WriteString("# preset picks a built-in exclude list for known junk (caches, tmp,\n")
+		sb.WriteString(fmt.Sprintf("# archives) — supported: %s.\n", strings.Join(supportedFilePresets, ", ")))
+		sb.WriteString("# Uncomment and edit to use it:\n")
+		sb.WriteString("#\n")
+		sb.WriteString("# files:\n")
+		sb.WriteString("#   - path: /var/www/mysite\n")
+		sb.WriteString("#     preset: wordpress\n")
+		sb.WriteString("#     exclude: []      # extra patterns on top of the preset, optional\n")
 	}
 
 	if p.Mode == "full" {

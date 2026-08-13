@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -16,15 +17,20 @@ const (
 	systemdTimerPath   = "/etc/systemd/system/restic-backup.timer"
 )
 
-// dbDumpCommand maps each supported database type to the dump binary it
-// needs. supportedDBTypes keeps the display order for --gen-config and
-// error messages.
+// dbDumpCommand maps each supported database type to the tool it needs in
+// PATH (checked by checkDumpToolsInstalled before anything is touched).
+// supportedDBTypes keeps the display order for --gen-config and error
+// messages.
 var dbDumpCommand = map[string]string{
 	"mysql":    "mysqldump",
 	"postgres": "pg_dump",
+	"redis":    "redis-cli",
+	"rabbitmq": "rabbitmqctl",
 }
 
-var supportedDBTypes = []string{"mysql", "postgres"}
+var supportedDBTypes = []string{"mysql", "postgres", "redis", "rabbitmq"}
+
+const backupExcludesPath = "/root/backup-excludes.txt"
 
 // InitServer sets up the server: restic, database dump tools, backup-user,
 // the repository, the dump script, and the systemd timer. Idempotent —
@@ -287,18 +293,111 @@ func buildBackupScript(cfg *Config) (string, error) {
 	// with no User=), otherwise it can't find its cache directory and
 	// warns about it in every log line.
 	sb.WriteString(fmt.Sprintf("export HOME=/root\nDUMPS=%s\nexport RESTIC_PASSWORD_FILE=%s\nREPO=%s\n\n", dumpsDir, cfg.Restic.PasswordFile, cfg.Restic.Repo))
+
 	for _, db := range cfg.Databases {
-		dumpCmd, ok := dbDumpCommand[db.Type]
-		if !ok {
-			return "", fmt.Errorf("unknown database type %q, supported: %s", db.Type, strings.Join(supportedDBTypes, ", "))
-		}
-		for _, name := range db.Names {
-			sb.WriteString(fmt.Sprintf("%s %s > \"$DUMPS/%s.sql\"\n", dumpCmd, name, name))
+		if err := writeDatabaseDump(&sb, db); err != nil {
+			return "", err
 		}
 	}
-	sb.WriteString("\nrestic -r \"$REPO\" backup \"$DUMPS\"\n")
-	sb.WriteString("rm -f \"$DUMPS\"/*.sql\n")
+
+	var excludePatterns []string
+	for _, f := range cfg.Files {
+		patterns, err := buildExcludeList(f)
+		if err != nil {
+			return "", err
+		}
+		excludePatterns = append(excludePatterns, patterns...)
+	}
+	if len(excludePatterns) > 0 {
+		sb.WriteString(fmt.Sprintf("\ncat > %s <<'BACKUPCTL_EXCLUDES'\n", backupExcludesPath))
+		for _, p := range excludePatterns {
+			sb.WriteString(p)
+			sb.WriteString("\n")
+		}
+		sb.WriteString("BACKUPCTL_EXCLUDES\n")
+	}
+
+	sb.WriteString("\nrestic -r \"$REPO\" backup \"$DUMPS\"")
+	for _, f := range cfg.Files {
+		sb.WriteString(fmt.Sprintf(" %q", f.Path))
+	}
+	if len(excludePatterns) > 0 {
+		sb.WriteString(" --exclude-file=" + backupExcludesPath)
+	}
+	for _, tag := range buildBackupTags(cfg) {
+		sb.WriteString(" --tag " + tag)
+	}
+	sb.WriteString("\n")
+	sb.WriteString("rm -f \"$DUMPS\"/*\n")
 	return sb.String(), nil
+}
+
+// writeDatabaseDump appends the dump command(s) for one databases: entry.
+// mysql/postgres are a simple "tool dbname > file.sql" per name; redis and
+// rabbitmq have a single instance each (Names is ignored for them) and
+// need more than one command, so they get their own blocks.
+func writeDatabaseDump(sb *strings.Builder, db DatabaseConfig) error {
+	switch db.Type {
+	case "mysql":
+		for _, name := range db.Names {
+			sb.WriteString(fmt.Sprintf("mysqldump %s > \"$DUMPS/%s.sql\"\n", name, name))
+		}
+	case "postgres":
+		for _, name := range db.Names {
+			sb.WriteString(fmt.Sprintf("pg_dump %s > \"$DUMPS/%s.sql\"\n", name, name))
+		}
+	case "redis":
+		// RDB files are LZF-compressed by default (rdbcompression yes),
+		// which wrecks restic's content-defined deduplication — a tiny
+		// data change can shift the whole compressed byte stream. Turn
+		// compression off just for this dump (restic compresses the
+		// repository itself anyway, after deduplication, which is the
+		// right order) and restore whatever the setting actually was
+		// before, not a hardcoded "yes".
+		sb.WriteString("REDIS_DIR=$(redis-cli config get dir | tail -1)\n")
+		sb.WriteString("REDIS_DBFILENAME=$(redis-cli config get dbfilename | tail -1)\n")
+		sb.WriteString("REDIS_RDBCOMPRESSION_ORIG=$(redis-cli config get rdbcompression | tail -1)\n")
+		sb.WriteString("redis-cli config set rdbcompression no\n")
+		sb.WriteString("redis-cli bgsave\n")
+		sb.WriteString("while [ \"$(redis-cli info persistence | grep -c 'rdb_bgsave_in_progress:1')\" = \"1\" ]; do sleep 1; done\n")
+		sb.WriteString("redis-cli config set rdbcompression \"$REDIS_RDBCOMPRESSION_ORIG\"\n")
+		sb.WriteString("cp \"$REDIS_DIR/$REDIS_DBFILENAME\" \"$DUMPS/redis.rdb\"\n")
+		// ACLs aren't part of the RDB — save them, plus the full effective
+		// config, so a restore isn't just data with no access control.
+		sb.WriteString("redis-cli acl list > \"$DUMPS/redis-acl.txt\"\n")
+		sb.WriteString("redis-cli config get '*' > \"$DUMPS/redis-config.txt\"\n")
+	case "rabbitmq":
+		// export_definitions already covers users+permissions (the ACL
+		// equivalent), vhosts, policies, exchanges, queues and bindings —
+		// nothing else needs a separate dump.
+		sb.WriteString("rabbitmqctl export_definitions \"$DUMPS/rabbitmq-definitions.json\"\n")
+	default:
+		return fmt.Errorf("unknown database type %q, supported: %s", db.Type, strings.Join(supportedDBTypes, ", "))
+	}
+	return nil
+}
+
+// buildBackupTags returns a deduplicated, sorted list of restic tags for
+// this run — one per configured database type, plus "files" and the
+// preset name (if any) for each files: entry — so snapshots can be
+// filtered later with `restic snapshots --tag redis`, etc.
+func buildBackupTags(cfg *Config) []string {
+	set := map[string]bool{}
+	for _, db := range cfg.Databases {
+		set[db.Type] = true
+	}
+	for _, f := range cfg.Files {
+		set["files"] = true
+		if f.Preset != "" && f.Preset != "none" {
+			set[f.Preset] = true
+		}
+	}
+	tags := make([]string, 0, len(set))
+	for t := range set {
+		tags = append(tags, t)
+	}
+	sort.Strings(tags)
+	return tags
 }
 
 func writeBackupScript(cfg *Config, path string) error {

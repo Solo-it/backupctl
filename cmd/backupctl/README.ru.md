@@ -60,7 +60,7 @@ go install github.com/Solo-it/backupctl/cmd/backupctl@latest
 | `--init-client-launchd` | клиент (Mac) | SSH-ключ + pull-скрипт + `launchd` plist |
 | `--init-client-systemd` | клиент (Linux) | SSH-ключ + pull-скрипт + systemd timer |
 | `--init-client-task-scheduler` | клиент (Windows) | SSH-ключ + pull-скрипт (PowerShell) + Планировщик заданий (schtasks) |
-| `--version` / `-v` | — | версия |
+| `--version` / `-v` | — | версия (заодно проверяет на GitHub новый релиз, best-effort) |
 | `--help` / `-h` | — | справка по флагам |
 | `--info` | — | этот README, встроенный в бинарник |
 
@@ -190,6 +190,61 @@ sudo backupctl --init-server -config=backup.yaml
 следующий же прогон по расписанию. Отдельной команды "обновить" не
 нужно, `--init-server` для этого и предназначен.
 
+## Redis и RabbitMQ
+
+`databases:` также принимает `type: redis` и `type: rabbitmq` — `names:`
+для них игнорируется (инстанс один, перечислять нечего).
+
+- **Redis**: `BGSAVE` и копирование получившегося RDB-файла. По умолчанию
+  Redis сжимает RDB (`rdbcompression yes`) — это сильно портит
+  дедупликацию restic между бэкапами: один изменившийся ключ может
+  сдвинуть весь сжатый поток байт, и почти ничего не совпадёт с прошлым
+  снапшотом. `--init-server` делает это за вас: выключает
+  `rdbcompression` на время дампа и возвращает его к тому значению, что
+  реально было раньше (не жёстко "yes") — restic и так сжимает сам
+  репозиторий, уже после дедупликации, это правильный порядок. ACL не
+  входят в RDB, поэтому `acl list` и весь эффективный конфиг
+  (`config get '*'`) сохраняются отдельно рядом.
+- **RabbitMQ**: `rabbitmqctl export_definitions` — уже покрывает
+  пользователей и права (эквивалент ACL), vhosts, policies, exchanges,
+  queues и bindings одним файлом, больше ничего не нужно.
+
+## Файлы — сайты, CMS, домашние директории пользователей
+
+`files:` бэкапит обычные директории в тот же restic-репозиторий, рядом с
+дампами БД — без отдельного репозитория, без лишней инфраструктуры.
+`preset` подключает готовый список исключений под типичный мусор (кэши,
+временные файлы, уже сжатые архивы), чтобы бэкап не раздувался тем, что
+не нужно восстанавливать; `exclude` добавляет свои паттерны поверх.
+Поддерживаемые пресеты: `wordpress`, `bitrix`, `joomla`, `drupal`, `user`
+(обычная домашняя директория) или `none` — вообще без встроенных
+исключений.
+
+Зависимости (`vendor/`, `node_modules/`) **осознанно не исключаются**
+ни одним пресетом — восстановление сайта без них означает вручную
+запускать `composer install`/`npm install` посреди инцидента, а места
+они съедают не так уж много по сравнению с кэшами.
+
+```yaml
+files:
+  - path: /var/www/mysite
+    preset: wordpress
+    exclude: ["*.mp4"]        # доп. паттерны поверх пресета, опционально
+  - path: /home/deploy
+    preset: user
+```
+
+## Теги
+
+Каждый прогон бэкапа помечается в restic тегами по тому, что реально в
+него попало — по одному тегу на каждый настроенный тип БД (`mysql`,
+`redis`, ...), плюс `files` и имя пресета (например `wordpress`) для
+каждой записи в `files:`. Фильтровать снапшоты по нужному:
+
+```bash
+restic -r /home/backup-user/backups/restic-repo --password-file /root/.restic-env snapshots --tag redis
+```
+
 ## Формат backup.yaml
 
 ```yaml
@@ -199,7 +254,7 @@ restic:
 
 backup_user: backup-user
 
-databases:           # поддерживаемые type: mysql, postgres
+databases:           # поддерживаемые type: mysql, postgres, redis, rabbitmq
   - type: mysql
     names:
       - app_db
@@ -207,6 +262,13 @@ databases:           # поддерживаемые type: mysql, postgres
   - type: postgres
     names:
       - analytics
+  - type: redis
+  - type: rabbitmq
+
+files:                # опционально — см. "Файлы" выше
+  - path: /var/www/mysite
+    preset: wordpress
+    exclude: ["*.mp4"]
 
 schedule: "02:00"   # UTC, время серверного дампа+бэкапа
 
