@@ -66,6 +66,7 @@
   }
   .tab-btn:hover { color: var(--text); }
   .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-content { position: relative; }
   .tab-panel { display: none; }
   .tab-panel.active { display: block; }
   .code-block {
@@ -76,6 +77,8 @@
     overflow-x: auto; position: relative; white-space: pre;
   }
   .code-block .prompt { color: #5eead4; }
+  .code-block a { color: #7dd3fc; }
+  .code-block a:hover { color: #a5e6ff; }
   .copy-btn {
     position: absolute; top: 0.6rem; right: 0.6rem;
     background: rgba(255,255,255,0.08); color: var(--code-text);
@@ -132,6 +135,7 @@
       <button class="tab-btn" data-tab="binary">Binary</button>
     </div>
 
+    <div class="tab-content" id="tabContent">
     <div class="tab-panel active" data-panel="oneliner">
       <div class="code-block">
 <span class="prompt">$</span> curl -fsSL https://raw.githubusercontent.com/Solo-it/backupctl/main/backupctl-install.sh | sh
@@ -168,6 +172,8 @@
 
     <div class="tab-panel" data-panel="binary">
       <div class="code-block">See the <a href="https://github.com/Solo-it/backupctl/releases">Releases page</a> for .tar.gz/.zip binaries, .deb, .rpm and .apk packages.</div>
+      <p class="tab-note">&nbsp;</p>
+    </div>
     </div>
   </section>
 
@@ -213,6 +219,30 @@
     idleTimeLimit: 2,
     fit: 'width'
   });
+
+  // Measure every panel's natural height once, then lock the container to
+  // the tallest one — otherwise the page jumps up/down when switching tabs
+  // with different amounts of text.
+  (function lockTabContentHeight() {
+    var content = document.getElementById('tabContent');
+    var panels = content.querySelectorAll('.tab-panel');
+    var width = content.getBoundingClientRect().width + 'px';
+    var maxHeight = 0;
+    panels.forEach(function (p) {
+      var wasActive = p.classList.contains('active');
+      p.style.display = 'block';
+      p.style.position = 'absolute';
+      p.style.visibility = 'hidden';
+      p.style.width = width;
+      maxHeight = Math.max(maxHeight, p.offsetHeight);
+      p.style.display = '';
+      p.style.position = '';
+      p.style.visibility = '';
+      p.style.width = '';
+      if (!wasActive) p.classList.remove('active');
+    });
+    content.style.minHeight = maxHeight + 'px';
+  })();
 
   document.querySelectorAll('.tab-btn').forEach(function (btn) {
     btn.addEventListener('click', function () {
