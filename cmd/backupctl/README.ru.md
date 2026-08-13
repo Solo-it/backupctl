@@ -17,6 +17,9 @@ English version: `backupctl --info` (default) or [README.md](https://github.com/
 ## Установка
 
 ```bash
+# Одна команда (сама определит apt/Homebrew, иначе скачает бинарник с проверкой checksum)
+curl -fsSL https://raw.githubusercontent.com/Solo-it/backupctl/main/backupctl-install.sh | sh
+
 # Debian/Ubuntu (apt-репозиторий, подписан GPG)
 curl -fsSL https://solo-it.github.io/backupctl/apt/signing-key.asc | sudo gpg --dearmor -o /usr/share/keyrings/backupctl.gpg
 echo "deb [signed-by=/usr/share/keyrings/backupctl.gpg] https://solo-it.github.io/backupctl/apt stable main" | sudo tee /etc/apt/sources.list.d/backupctl.list
