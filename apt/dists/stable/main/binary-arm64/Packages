@@ -1,0 +1,14 @@
+Package: backupctl
+Version: 1.0.0
+Architecture: arm64
+Maintainer: Solo-it <sas@solo-it.ru>
+Installed-Size: 2688
+Filename: pool/main/backupctl_1.0.0_linux_arm64.deb
+Size: 1149278
+MD5sum: cb468e8529e8b857f2c563b163320b2f
+SHA1: 71f1ade93edcacbbc3a0137ebcfae418d91ef884
+SHA256: 82131641b2edde6a7b398ec350f944f0360ee0ee7ecc0d684e06b5ef016f6fbd
+Priority: optional
+Homepage: https://github.com/Solo-it/backupctl
+Description: CLI tool for setting up restic-based MySQL/PostgreSQL backups between a server and a client that pulls them over SSH.
+
