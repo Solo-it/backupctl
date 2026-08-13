@@ -275,6 +275,25 @@ time, not needed for disaster recovery on its own).
   hasn't been run against a live install yet. Please open an issue if
   you hit problems.
 
+## Retention — how long backups are kept
+
+By default backupctl keeps every snapshot forever — nothing is deleted
+automatically. Add `retention:` to have `--init-server` run
+`restic forget --prune` after each backup, keeping the most recent
+snapshot per day/week/month/year for the counts you set:
+
+```yaml
+retention:
+  keep_daily: 90     # daily snapshots for 90 days
+  keep_monthly: 36   # monthly snapshots for 3 years
+  keep_yearly: 15    # yearly snapshots for 15 years
+```
+
+Any of `keep_daily`, `keep_weekly`, `keep_monthly`, `keep_yearly` can be
+omitted or set to 0 — only the ones you set are passed to `restic forget`.
+If `retention:` is left out entirely (or all fields are 0), no `forget`
+command is run at all — same as today.
+
 ## Tags
 
 Every backup run is tagged in restic with what it actually covered —
@@ -318,6 +337,11 @@ files:                # optional — see "Files" above
     binary: /opt/1cv8/x86_64/8.3.23.1912/1cv8
     user: Администратор
     password_file: /root/.onec-mybase-password
+
+retention:            # optional — see "Retention" above, omit to keep forever
+  keep_daily: 90
+  keep_monthly: 36
+  keep_yearly: 15
 
 schedule: "02:00"   # UTC, server dump+backup time
 

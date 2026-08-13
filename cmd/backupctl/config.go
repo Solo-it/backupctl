@@ -61,12 +61,30 @@ type ClientConfig struct {
 	Schedule   string `yaml:"schedule"`
 }
 
+// RetentionConfig controls how many snapshots restic keeps after each
+// backup run, via `restic forget --prune`. All-zero (the zero value,
+// also what an absent retention: section unmarshals to) means "keep
+// forever" — no forget command is run — matching restic's own default
+// behavior when no policy is configured, so leaving this unset changes
+// nothing for existing configs.
+type RetentionConfig struct {
+	KeepDaily   int `yaml:"keep_daily"`
+	KeepWeekly  int `yaml:"keep_weekly"`
+	KeepMonthly int `yaml:"keep_monthly"`
+	KeepYearly  int `yaml:"keep_yearly"`
+}
+
+func (r RetentionConfig) isSet() bool {
+	return r.KeepDaily > 0 || r.KeepWeekly > 0 || r.KeepMonthly > 0 || r.KeepYearly > 0
+}
+
 type Config struct {
 	Restic     ResticConfig       `yaml:"restic"`
 	BackupUser string             `yaml:"backup_user"`
 	Databases  []DatabaseConfig   `yaml:"databases"`
 	Files      []FileBackupConfig `yaml:"files"`
 	OneC       []OneCConfig       `yaml:"1c"`
+	Retention  RetentionConfig    `yaml:"retention"`
 	Schedule   string             `yaml:"schedule"`
 	Client     ClientConfig       `yaml:"client"`
 

@@ -340,6 +340,24 @@ func buildBackupScript(cfg *Config) (string, error) {
 	}
 	sb.WriteString("\n")
 	sb.WriteString("rm -f \"$DUMPS\"/*\n")
+
+	if cfg.Retention.isSet() {
+		sb.WriteString("\nrestic -r \"$REPO\" forget --prune")
+		if cfg.Retention.KeepDaily > 0 {
+			sb.WriteString(fmt.Sprintf(" --keep-daily %d", cfg.Retention.KeepDaily))
+		}
+		if cfg.Retention.KeepWeekly > 0 {
+			sb.WriteString(fmt.Sprintf(" --keep-weekly %d", cfg.Retention.KeepWeekly))
+		}
+		if cfg.Retention.KeepMonthly > 0 {
+			sb.WriteString(fmt.Sprintf(" --keep-monthly %d", cfg.Retention.KeepMonthly))
+		}
+		if cfg.Retention.KeepYearly > 0 {
+			sb.WriteString(fmt.Sprintf(" --keep-yearly %d", cfg.Retention.KeepYearly))
+		}
+		sb.WriteString("\n")
+	}
+
 	return sb.String(), nil
 }
 

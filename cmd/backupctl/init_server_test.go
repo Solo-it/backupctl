@@ -36,6 +36,39 @@ func TestBuildBackupScript(t *testing.T) {
 			t.Errorf("backup script does not contain %q:\n%s", want, script)
 		}
 	}
+	if strings.Contains(script, "forget") {
+		t.Errorf("no retention: configured, forget should not be emitted:\n%s", script)
+	}
+}
+
+func TestBuildBackupScript_Retention(t *testing.T) {
+	cfg := &Config{
+		Restic: ResticConfig{
+			Repo:         "/home/backup-user/backups/restic-repo",
+			PasswordFile: "/root/.restic-env",
+		},
+		Databases: []DatabaseConfig{{Type: "mysql", Names: []string{"app_db"}}},
+		Retention: RetentionConfig{KeepDaily: 7, KeepWeekly: 4, KeepMonthly: 6},
+	}
+
+	script, err := buildBackupScript(cfg)
+	if err != nil {
+		t.Fatalf("buildBackupScript: %v", err)
+	}
+
+	for _, want := range []string{
+		"restic -r \"$REPO\" forget --prune",
+		"--keep-daily 7",
+		"--keep-weekly 4",
+		"--keep-monthly 6",
+	} {
+		if !strings.Contains(script, want) {
+			t.Errorf("backup script does not contain %q:\n%s", want, script)
+		}
+	}
+	if strings.Contains(script, "--keep-yearly") {
+		t.Errorf("KeepYearly=0 should not emit --keep-yearly:\n%s", script)
+	}
 }
 
 func TestBuildBackupScript_UnknownDBType(t *testing.T) {

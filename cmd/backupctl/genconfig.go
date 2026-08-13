@@ -76,6 +76,15 @@ func buildConfigYAML(p GenConfigParams) (string, error) {
 		sb.WriteString("#   - path: /var/www/mysite\n")
 		sb.WriteString("#     preset: wordpress\n")
 		sb.WriteString("#     exclude: []      # extra patterns on top of the preset, optional\n")
+		sb.WriteString("\n")
+		sb.WriteString("# retention: how many snapshots restic keeps after each backup (runs\n")
+		sb.WriteString("# `restic forget --prune`). Omit entirely to keep every snapshot forever.\n")
+		sb.WriteString("# Uncomment and edit to use it:\n")
+		sb.WriteString("#\n")
+		sb.WriteString("# retention:\n")
+		sb.WriteString("#   keep_daily: 90     # e.g. daily snapshots for 90 days\n")
+		sb.WriteString("#   keep_monthly: 36   # monthly snapshots for 3 years\n")
+		sb.WriteString("#   keep_yearly: 15    # yearly snapshots for 15 years\n")
 	}
 
 	if p.Mode == "full" {
