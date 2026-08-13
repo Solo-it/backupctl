@@ -12,7 +12,7 @@ jobs:
   goreleaser:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -36,7 +36,7 @@ jobs:
     needs: goreleaser
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install dpkg-dev, apt-utils and gpg
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends dpkg-dev apt-utils gnupg
