@@ -24,6 +24,10 @@ sudo apt update && sudo apt install backupctl
 
 # Homebrew (macOS/Linux)
 brew install Solo-it/tap/backupctl
+# или короткая форма (разовая настройка — свежие версии Homebrew требуют
+# явно доверять сторонним tap'ам):
+#   brew tap Solo-it/tap && brew trust solo-it/tap
+#   brew install backupctl
 
 # Go
 go install github.com/Solo-it/backupctl/cmd/backupctl@latest

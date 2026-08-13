@@ -17,6 +17,9 @@ sudo apt update && sudo apt install backupctl
 
 # Homebrew
 brew install Solo-it/tap/backupctl
+# or, for the short form afterwards (one-time setup):
+#   brew tap Solo-it/tap && brew trust solo-it/tap
+#   brew install backupctl
 
 # Go
 go install github.com/Solo-it/backupctl/cmd/backupctl@latest
