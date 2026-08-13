@@ -64,6 +64,7 @@ brews:
     repository:
       owner: Solo-it
       name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     homepage: https://github.com/Solo-it/backupctl
     description: CLI tool for setting up restic-based database backups
     license: MIT
