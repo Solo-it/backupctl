@@ -239,11 +239,48 @@ files:
     preset: user
 ```
 
+## 1C:Enterprise
+
+`1c:` backs up a file-mode infobase (a directory containing `1Cv8.1CD`)
+via `1cv8 DESIGNER` in console mode — `/DumpIB` for the full dump
+(config + data in one `.dt` file), and optionally `/DumpCfg` for a
+second, config-only `.cf` file (useful for diffing config changes over
+time, not needed for disaster recovery on its own).
+
+```yaml
+1c:
+  - name: mybase
+    path: /home/user1cv8/infobases/mybase
+    binary: /opt/1cv8/x86_64/8.3.23.1912/1cv8   # no default, varies by install
+    user: Администратор
+    password_file: /root/.onec-mybase-password  # or password: inline (cleartext in backup.yaml)
+    dump_config: true                           # optional, adds the .cf dump
+```
+
+- `binary` has no default — the exact path depends on the installed
+  1cv8 platform version, and guessing wrong would silently break backups.
+- Exactly one of `password`/`password_file` must be set, same reasoning
+  as `restic.password_file`: `password_file` avoids the cleartext
+  password sitting in `backup.yaml`. Either way, the password is also
+  briefly visible in `ps aux` while `1cv8` runs — that's inherent to
+  1C's own CLI (it only accepts the password as a plain argument) and
+  can't be avoided from this side.
+- Unlike Redis's RDB, `.dt`/`.cf` files are internally compressed by 1C
+  with no CLI option to disable it, so expect worse restic deduplication
+  between snapshots than with an uncompressed dump.
+- Unpacking `.cf` into XML for git-friendly diffing (via `v8unpack` or
+  similar) is a deliberately separate, deferred feature — not implemented.
+- **Not yet verified against a real 1C:Enterprise server** — this
+  follows the documented `1cv8 DESIGNER` console-mode syntax, but
+  hasn't been run against a live install yet. Please open an issue if
+  you hit problems.
+
 ## Tags
 
 Every backup run is tagged in restic with what it actually covered —
 one tag per database type configured (`mysql`, `redis`, ...), plus
-`files` and the preset name (e.g. `wordpress`) for each `files:` entry.
+`files` and the preset name (e.g. `wordpress`) for each `files:` entry,
+plus `1c` if any `1c:` entries are configured.
 Filter snapshots by what you're looking for:
 
 ```bash
@@ -274,6 +311,13 @@ files:                # optional — see "Files" above
   - path: /var/www/mysite
     preset: wordpress
     exclude: ["*.mp4"]
+
+1c:                   # optional — see "1C:Enterprise" above
+  - name: mybase
+    path: /home/user1cv8/infobases/mybase
+    binary: /opt/1cv8/x86_64/8.3.23.1912/1cv8
+    user: Администратор
+    password_file: /root/.onec-mybase-password
 
 schedule: "02:00"   # UTC, server dump+backup time
 

@@ -30,6 +30,30 @@ type FileBackupConfig struct {
 	Exclude []string `yaml:"exclude"`
 }
 
+// OneCConfig backs up a file-mode 1C:Enterprise infobase (a directory
+// containing 1Cv8.1CD) via `1cv8 DESIGNER`, in console mode. Unlike
+// mysql/postgres/redis this needs a real filesystem path plus
+// credentials, so it doesn't fit the databases: type+names shape.
+//
+// Exactly one of Password/PasswordFile must be set. Password sits in
+// backup.yaml in cleartext if used — PasswordFile is the safer default
+// (see the README for why, same reasoning as restic.password_file).
+// Binary has no default: the exact install path varies by platform
+// version (e.g. /opt/1cv8/x86_64/8.3.23.1912/1cv8) and guessing wrong
+// would silently break backups, so it's required.
+type OneCConfig struct {
+	Name         string `yaml:"name"`
+	Path         string `yaml:"path"`
+	Binary       string `yaml:"binary"`
+	User         string `yaml:"user"`
+	Password     string `yaml:"password"`
+	PasswordFile string `yaml:"password_file"`
+	// DumpConfig also produces a separate .cf (configuration only, no
+	// data) alongside the .dt full dump — useful for diffing config
+	// changes over time, not needed just for disaster-recovery backups.
+	DumpConfig bool `yaml:"dump_config"`
+}
+
 type ClientConfig struct {
 	Remote     string `yaml:"remote"`
 	RemoteRepo string `yaml:"remote_repo"`
@@ -42,6 +66,7 @@ type Config struct {
 	BackupUser string             `yaml:"backup_user"`
 	Databases  []DatabaseConfig   `yaml:"databases"`
 	Files      []FileBackupConfig `yaml:"files"`
+	OneC       []OneCConfig       `yaml:"1c"`
 	Schedule   string             `yaml:"schedule"`
 	Client     ClientConfig       `yaml:"client"`
 
