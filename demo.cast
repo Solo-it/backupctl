@@ -280,7 +280,7 @@
 [0.002, "o", "[1/10] restic is already installed\r\n[2/10] database dump tools are installed\r\n"]
 [0.001, "o", "[3/10] creating user backup-user (no password, SSH key only)\r\n"]
 [0.034, "o", "[4/10] creating directory /home/backup-user/backups/restic-repo\r\n[4/10] creating directory /home/backup-user/backups/dumps\r\n[5/10] setting root:backup-user 750+setgid permissions on /home/backup-user/backups\r\n"]
-[0.004, "o", "[6/10] generating a restic password into /root/.restic-env\r\n\r\n⚠ RESTIC PASSWORD (save it separately — this is the only chance to decrypt\r\n  the backups if the server is lost, backupctl will never show it again):\r\n\r\n  elrHV955aUj1OjPjZEpgh5YF2WCVUBV3IsiUc35alcI\r\n\r\nIt has also been written to /root/.restic-env (owned by root, mode 600).\r\n\r\n"]
+[0.004, "o", "[6/10] generating a restic password into /root/.restic-env\r\n\r\n⚠ RESTIC PASSWORD (save it separately — this is the only chance to decrypt\r\n  the backups if the server is lost, backupctl will never show it again):\r\n\r\n  REDACTED-PASSWORD-EXAMPLE-ONLY-xxxxxxxxxx\r\n\r\nIt has also been written to /root/.restic-env (owned by root, mode 600).\r\n\r\n"]
 [0.007, "o", "[7/10] initializing restic repository /home/backup-user/backups/restic-repo\r\n"]
 [2.660, "o", "created restic repository 152a186d61 at /home/backup-user/backups/restic-repo\r\n\r\nPlease note that knowledge of your password is required to access\r\nthe repository. Losing your password means that your data is\r\nirrecoverably lost.\r\n"]
 [0.002, "o", "[8/10] writing /root/backup.sh\r\n[9/10] writing the systemd unit + timer\r\n"]
