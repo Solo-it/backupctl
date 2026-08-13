@@ -84,4 +84,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./apt-repo
           destination_dir: apt
-          keep_files: false
+          # keep_files: true — the site (index.html, demo cast) lives
+          # outside apt/ on this same branch, published separately. false
+          # here would wipe it on every release.
+          keep_files: true

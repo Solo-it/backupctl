@@ -1,0 +1,9 @@
+{"version": 3, "term": {"cols": 96, "rows": 20, "type": "xterm-256color"}, "timestamp": 1786588117, "command": "sh demo.sh", "env": {"SHELL": "/bin/zsh"}}
+[0.018, "o", "\u001b[H\u001b[2J\u001b[3J"]
+[0.000, "o", "\u001b[1;36mbackupctl\u001b[0m — restic-based MySQL/PostgreSQL backups, server → client over SSH\r\n\r\n"]
+[1.605, "o", "\u001b[1;32m$\u001b[0m backupctl --gen-config\r\n"]
+[1.201, "o", "config written to backup.yaml (mode=server)\r\n\r\nNext:\r\n  1. Open backup.yaml and fill in the real database names under databases: (right\r\n     now there's just the example_db placeholder).\r\n  2. If you want the SAME restic password as on another server (one\r\n     shared password across every repository — easier to manage), run\r\n     --init-server with:\r\n       sudo backupctl --init-server -config=backup.yaml -restic-password=\"<password-from-that-server>\"\r\n     If the password doesn't matter, just:\r\n       sudo backupctl --init-server -config=backup.yaml\r\n     Then a random password will be generated and shown in the console once.\r\n"]
+[1.609, "o", "\u001b[1;32m$\u001b[0m sed -i '' 's/example_db/my_database_for_backup/' backup.yaml\r\n"]
+[2.218, "o", "\u001b[1;32m$\u001b[0m cat backup.yaml\r\n"]
+[0.620, "o", "restic:\r\n  repo: /home/backup-user/backups/restic-repo\r\n  password_file: /root/.restic-env # created automatically by --init-server, if the file doesn't exist yet\r\n\r\nbackup_user: backup-user\r\n\r\ndatabases: # supported type: mysql, postgres\r\n  - type: mysql\r\n    names:\r\n      - my_database_for_backup\r\n\r\nschedule: \"02:00\" # UTC, server backup time\r\n"]
+[4.117, "x", "0"]

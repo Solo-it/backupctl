@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>backupctl — restic-based MySQL/PostgreSQL backups</title>
+<meta name="description" content="A CLI tool for setting up restic-based database backups: a server dumps MySQL/PostgreSQL, a client pulls it over SSH. No passwords, just an SSH key.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💾</text></svg>">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/asciinema-player@3/dist/bundle/asciinema-player.css">
+<style>
+  :root {
+    --bg: #f7f7f8;
+    --surface: #ffffff;
+    --text: #1a1a1e;
+    --text-dim: #55565f;
+    --border: #e3e3e7;
+    --accent: #2563eb;
+    --accent-dim: #dbeafe;
+    --code-bg: #0f1115;
+    --code-text: #e6e6e6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d0e12;
+      --surface: #16171d;
+      --text: #eceef2;
+      --text-dim: #9a9ba5;
+      --border: #24262f;
+      --accent: #6d9dff;
+      --accent-dim: #16233f;
+      --code-bg: #0a0b0e;
+      --code-text: #dcdde3;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  main { max-width: 860px; margin: 0 auto; padding: 4rem 1.5rem 6rem; }
+  header { text-align: center; margin-bottom: 2.5rem; }
+  h1 {
+    font-size: 2.6rem;
+    margin: 0 0 0.4rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    letter-spacing: -0.02em;
+  }
+  .tagline { color: var(--text-dim); font-size: 1.15rem; max-width: 46ch; margin: 0 auto; }
+  .badges { margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
+  .badges img { height: 20px; }
+
+  .install {
+    background: var(--code-bg);
+    color: var(--code-text);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    font: 14px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    margin: 2rem 0;
+    overflow-x: auto;
+    position: relative;
+  }
+  .install .prompt { color: #5eead4; margin-right: 0.5em; }
+  .copy-btn {
+    position: absolute; top: 0.6rem; right: 0.6rem;
+    background: rgba(255,255,255,0.08); color: var(--code-text);
+    border: 1px solid rgba(255,255,255,0.15); border-radius: 6px;
+    font: 12px ui-monospace, monospace; padding: 0.3rem 0.6rem; cursor: pointer;
+  }
+  .copy-btn:hover { background: rgba(255,255,255,0.16); }
+
+  section { margin: 3rem 0; }
+  h2 {
+    font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--text-dim); margin-bottom: 1rem; font-weight: 600;
+  }
+
+  #demo-player { border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
+
+  .features {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 1rem;
+  }
+  .feature {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 1.1rem 1.25rem;
+  }
+  .feature h3 { margin: 0 0 0.35rem; font-size: 1rem; }
+  .feature p { margin: 0; color: var(--text-dim); font-size: 0.92rem; }
+
+  .install-options {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 1rem;
+  }
+  .install-options .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 1rem 1.15rem;
+  }
+  .install-options code {
+    display: block; background: var(--code-bg); color: var(--code-text);
+    border-radius: 6px; padding: 0.5rem 0.6rem; font-size: 0.82rem;
+    margin-top: 0.5rem; overflow-x: auto; white-space: pre;
+  }
+
+  footer {
+    text-align: center; color: var(--text-dim); font-size: 0.9rem;
+    border-top: 1px solid var(--border); padding-top: 2rem; margin-top: 3rem;
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+  a.gh-link {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    color: var(--accent); text-decoration: none; font-weight: 500;
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>backupctl</h1>
+    <p class="tagline">restic-based MySQL/PostgreSQL backups. A server dumps the databases, a client pulls them over SSH — no passwords, only a key.</p>
+    <div class="badges">
+      <img src="https://img.shields.io/github/v/release/Solo-it/backupctl" alt="latest release">
+      <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license">
+      <img src="https://img.shields.io/github/actions/workflow/status/Solo-it/backupctl/test.yml?branch=main&label=tests" alt="tests">
+    </div>
+  </header>
+
+  <div class="install">
+    <span class="prompt">$</span><span id="install-cmd">curl -fsSL https://raw.githubusercontent.com/Solo-it/backupctl/main/backupctl-install.sh | sh</span>
+    <button class="copy-btn" onclick="navigator.clipboard.writeText(document.getElementById('install-cmd').textContent)">copy</button>
+  </div>
+
+  <section>
+    <h2>See it in action</h2>
+    <div id="demo-player"></div>
+  </section>
+
+  <section>
+    <h2>What it does</h2>
+    <div class="features">
+      <div class="feature">
+        <h3>Server → restic repository</h3>
+        <p>Dumps MySQL/PostgreSQL on a schedule (UTC, explicit systemd timer), backs them up with restic, installs restic itself if missing.</p>
+      </div>
+      <div class="feature">
+        <h3>Client pulls, never pushes</h3>
+        <p>The client fetches the repository over rsync via SSH. The server's backup-user has no password at all — key-only, restricted to rsync.</p>
+      </div>
+      <div class="feature">
+        <h3>Cross-platform clients</h3>
+        <p>launchd and pm2 on macOS, systemd on Linux, Task Scheduler on Windows — same config format everywhere.</p>
+      </div>
+      <div class="feature">
+        <h3>Idempotent by design</h3>
+        <p>Re-run <code>--init-server</code> any time — adding a database means editing the config and running it again, nothing destructive.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Install</h2>
+    <div class="install-options">
+      <div class="card">
+        <strong>Debian / Ubuntu</strong>
+        <code>curl -fsSL https://solo-it.github.io/backupctl/apt/signing-key.asc | sudo gpg --dearmor -o /usr/share/keyrings/backupctl.gpg
+echo "deb [signed-by=/usr/share/keyrings/backupctl.gpg] https://solo-it.github.io/backupctl/apt stable main" | sudo tee /etc/apt/sources.list.d/backupctl.list
+sudo apt update && sudo apt install backupctl</code>
+      </div>
+      <div class="card">
+        <strong>Homebrew</strong>
+        <code>brew install Solo-it/tap/backupctl</code>
+      </div>
+      <div class="card">
+        <strong>Go</strong>
+        <code>go install github.com/Solo-it/backupctl/cmd/backupctl@latest</code>
+      </div>
+      <div class="card">
+        <strong>Binary / .deb / .rpm / .apk</strong>
+        <code>See the <a href="https://github.com/Solo-it/backupctl/releases">Releases page</a></code>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p><a class="gh-link" href="https://github.com/Solo-it/backupctl">github.com/Solo-it/backupctl</a></p>
+    <p>MIT licensed · <code>backupctl --info</code> for the full guide (add <code>-lang=ru</code> for Russian)</p>
+  </footer>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/asciinema-player@3/dist/bundle/asciinema-player.min.js"></script>
+<script>
+  AsciinemaPlayer.create('./demo.cast', document.getElementById('demo-player'), {
+    theme: 'monokai',
+    autoPlay: true,
+    loop: true,
+    idleTimeLimit: 2,
+    fit: 'width'
+  });
+</script>
+</body>
+</html>
