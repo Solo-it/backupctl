@@ -305,6 +305,12 @@ func buildBackupScript(cfg *Config) (string, error) {
 		}
 	}
 
+	for _, oc := range cfg.OneC {
+		if err := writeOneCDump(&sb, oc); err != nil {
+			return "", err
+		}
+	}
+
 	var excludePatterns []string
 	for _, f := range cfg.Files {
 		patterns, err := buildExcludeList(f)
@@ -396,6 +402,9 @@ func buildBackupTags(cfg *Config) []string {
 		if f.Preset != "" && f.Preset != "none" {
 			set[f.Preset] = true
 		}
+	}
+	if len(cfg.OneC) > 0 {
+		set["1c"] = true
 	}
 	tags := make([]string, 0, len(set))
 	for t := range set {
