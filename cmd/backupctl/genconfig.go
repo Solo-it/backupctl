@@ -108,6 +108,7 @@ func GenConfig(p GenConfigParams, outPath string, force bool) error {
 	}
 	fmt.Printf("config written to %s (mode=%s)\n", outPath, p.Mode)
 	printGenConfigNextSteps(p.Mode, outPath)
+	printUpdateNoticeIfAny() // always run by a human, never off a schedule — safe to check
 	return nil
 }
 

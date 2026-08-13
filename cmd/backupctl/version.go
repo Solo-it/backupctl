@@ -26,13 +26,13 @@ func printVersion() {
 
 // printUpdateNoticeIfAny checks GitHub for a newer release and prints a
 // one-line nudge if there is one — same idea as pnpm/npm's update notice.
-// Only called from --version (an interactive command a human just ran),
-// never from --init-server or anything that might run unattended from a
-// systemd timer with no network, a proxy, or restricted egress — a
-// backup tool has no business making surprise outbound calls on a
-// schedule. Best-effort: any failure (offline, GitHub down, rate
-// limited) is silently ignored, this is a courtesy, not a feature you
-// can depend on.
+// Called from --version, --gen-config and --init-server — all three are
+// always run directly by a human, never unattended. Deliberately NOT
+// called from anything the systemd timer runs (backup.sh doesn't invoke
+// backupctl at all, so this never comes up) — a backup tool has no
+// business making surprise outbound calls on an unattended schedule.
+// Best-effort: any failure (offline, GitHub down, rate limited) is
+// silently ignored, this is a courtesy, not a feature you can depend on.
 func printUpdateNoticeIfAny() {
 	latestTag, ok := latestReleaseTag()
 	if !ok {

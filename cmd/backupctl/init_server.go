@@ -55,6 +55,7 @@ func InitServer(cfg *Config) error {
 	}
 	fmt.Println("--init-server: done")
 	printInitServerNextSteps()
+	printUpdateNoticeIfAny() // always run by a human, never off a schedule — safe to check
 	return nil
 }
 
