@@ -35,8 +35,10 @@ Commands:
   --init-client-task-scheduler  set up the client (Windows) via Task Scheduler:
                               same thing, but the scheduler is schtasks (needs rsync in PATH)
 
---help / --info flags:
-  -lang string       en (default) or ru
+Global flags (work with any command, in any position):
+  -lang string       en (default) or ru — only affects --help/--info text,
+                      everything else (step/status messages, errors) stays
+                      English regardless
 
 Common flags (--init-client-*, --add-client-key):
   -config string    path to backup.yaml (default ./backup.yaml)
@@ -74,6 +76,7 @@ Examples:
   backupctl --gen-config-client -out=backup-client.yaml -client-remote=backup-user@1.2.3.4
   backupctl --init-client-systemd -config=backup-client.yaml
   backupctl --add-client-key -pubkey=~/.ssh/id_ed25519_backupctl.pub
+  backupctl --help -lang=ru
 `
 
 const usageTextRU = `Использование: backupctl <команда> [флаги]
@@ -102,11 +105,51 @@ backupctl настраивает restic-бэкапы БД (MySQL, PostgreSQL) н
   --init-client-task-scheduler  настройка клиента (Windows) через Планировщик заданий:
                               то же самое, но планировщик — schtasks (нужен rsync в PATH)
 
+Глобальные флаги (работают с любой командой, в любой позиции):
+  -lang string        en (по умолчанию) или ru — влияет только на текст
+                       --help/--info, весь остальной вывод (шаги, ошибки)
+                       всё равно на английском
+
+Общие флаги (--init-client-*, --add-client-key):
+  -config string    путь к backup.yaml (по умолчанию ./backup.yaml)
+
+--init-server флаги:
+  -config string       путь к backup.yaml (по умолчанию ./backup.yaml)
+  -restic-password string  использовать этот пароль restic вместо генерации
+                        случайного (например, чтобы переиспользовать пароль
+                        с другого сервера — единый пароль для всех
+                        репозиториев). Работает только если password_file
+                        ещё не существует — существующий файл не трогается.
+
+--gen-config флаги (все опциональны, есть разумные значения по умолчанию):
+  -out string                 путь для записи (по умолчанию ./backup.yaml)
+  -force                      перезаписать существующий файл
+  -restic-repo string         путь restic-репозитория на сервере
+  -restic-password-file string  путь к файлу с паролем restic
+  -backup-user string         системный пользователь для бэкапов
+  -server-schedule string     время серверного бэкапа HH:MM UTC
+
+--gen-config-client флаги (все опциональны):
+  -out string                  путь для записи (по умолчанию ./backup-client.yaml)
+  -force                       перезаписать существующий файл
+  -client-remote string        user@host сервера
+  -client-remote-repo string   путь repo на сервере
+  -client-local-path string    локальный путь на клиенте
+  -client-schedule string      время забора бэкапа клиентом HH:MM
+
+--add-client-key флаги:
+  -pubkey string     путь к файлу с публичным ключом или сам ключ строкой
+
+Примеры:
+  backupctl --gen-config
+  backupctl --init-server
+  backupctl --gen-config-client -out=backup-client.yaml -client-remote=backup-user@1.2.3.4
+  backupctl --init-client-systemd -config=backup-client.yaml
+  backupctl --add-client-key -pubkey=~/.ssh/id_ed25519_backupctl.pub
+  backupctl --help -lang=ru
+
 Остальной вывод программы (шаги --init-server, сообщения об ошибках) пока
 только на английском — переведены только --help/--info.
-
-Флаги --help / --info:
-  -lang string       en (по умолчанию) или ru
 `
 
 func usage(lang string) {
@@ -121,8 +164,9 @@ func usageText(lang string) string {
 }
 
 // extractLang pulls -lang/--lang out of args wherever it appears (it's a
-// global flag, not tied to any one subcommand's flag.FlagSet) and returns
-// the remaining args unchanged otherwise. Defaults to "en".
+// global flag, not tied to any one subcommand's flag.FlagSet, and works
+// regardless of position — before or after the command name) and returns
+// the remaining args with it removed. Defaults to "en".
 func extractLang(args []string) (lang string, rest []string) {
 	lang = "en"
 	for i, a := range args {
@@ -147,42 +191,42 @@ func extractLang(args []string) (lang string, rest []string) {
 }
 
 func main() {
-	if len(os.Args) < 2 {
-		usage("en")
+	lang, args := extractLang(os.Args[1:])
+	if len(args) < 1 {
+		usage(lang)
 		os.Exit(1)
 	}
 
-	cmd := os.Args[1]
+	cmd := args[0]
+	rest := args[1:]
 
 	switch cmd {
 	case "--help", "-h":
-		lang, _ := extractLang(os.Args[2:])
 		fmt.Print(usageText(lang))
 		return
 	case "--info":
-		lang, _ := extractLang(os.Args[2:])
 		printInfo(lang)
 		return
 	case "--version", "-v":
 		printVersion()
 		return
 	case "--gen-config":
-		runGenConfig(os.Args[2:], "server", "backup.yaml")
+		runGenConfig(rest, "server", "backup.yaml")
 		return
 	case "--gen-config-client":
-		runGenConfig(os.Args[2:], "client", "backup-client.yaml")
+		runGenConfig(rest, "client", "backup-client.yaml")
 		return
 	case "--add-client-key":
-		runAddClientKey(os.Args[2:])
+		runAddClientKey(rest)
 		return
 	case "--init-server":
-		runInitServer(os.Args[2:])
+		runInitServer(rest)
 		return
 	}
 
 	fs := flag.NewFlagSet(cmd, flag.ExitOnError)
 	configPath := fs.String("config", "backup.yaml", "path to backup.yaml")
-	if err := fs.Parse(os.Args[2:]); err != nil {
+	if err := fs.Parse(rest); err != nil {
 		os.Exit(1)
 	}
 
@@ -197,7 +241,7 @@ func main() {
 	case "--init-client-task-scheduler":
 		run = InitClientTaskScheduler
 	default:
-		usage("en")
+		usage(lang)
 		os.Exit(1)
 	}
 
