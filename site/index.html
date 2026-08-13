@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>backupctl — restic-based MySQL/PostgreSQL backups</title>
-<meta name="description" content="A CLI tool for setting up restic-based database backups: a server dumps MySQL/PostgreSQL, a client pulls it over SSH. No passwords, just an SSH key.">
+<title>backupctl — database backups for your sites and microservices</title>
+<meta name="description" content="Back up your sites' and microservices' databases — MySQL and PostgreSQL — in three commands. A server dumps into a restic repository, a client pulls it over SSH. No passwords, just an SSH key.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💾</text></svg>">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/asciinema-player@3/dist/bundle/asciinema-player.css">
 <style>
@@ -47,21 +47,35 @@
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     letter-spacing: -0.02em;
   }
-  .tagline { color: var(--text-dim); font-size: 1.15rem; max-width: 46ch; margin: 0 auto; }
+  .tagline { color: var(--text-dim); font-size: 1.15rem; max-width: 48ch; margin: 0 auto; }
   .badges { margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
   .badges img { height: 20px; }
 
-  .install {
-    background: var(--code-bg);
-    color: var(--code-text);
-    border-radius: 10px;
-    padding: 1rem 1.25rem;
-    font: 14px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    margin: 2rem 0;
-    overflow-x: auto;
-    position: relative;
+  section { margin: 3rem 0; }
+  h2 {
+    font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--text-dim); margin-bottom: 1rem; font-weight: 600;
   }
-  .install .prompt { color: #5eead4; margin-right: 0.5em; }
+
+  /* install tabs */
+  .tabs { display: flex; gap: 0.25rem; border-bottom: 1px solid var(--border); margin-bottom: 0; flex-wrap: wrap; }
+  .tab-btn {
+    background: none; border: none; cursor: pointer;
+    padding: 0.6rem 1rem; font: 14px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: var(--text-dim); border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  .code-block {
+    background: var(--code-bg); color: var(--code-text);
+    border-radius: 0 10px 10px 10px;
+    padding: 1rem 1.25rem;
+    font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    overflow-x: auto; position: relative; white-space: pre;
+  }
+  .code-block .prompt { color: #5eead4; }
   .copy-btn {
     position: absolute; top: 0.6rem; right: 0.6rem;
     background: rgba(255,255,255,0.08); color: var(--code-text);
@@ -69,12 +83,8 @@
     font: 12px ui-monospace, monospace; padding: 0.3rem 0.6rem; cursor: pointer;
   }
   .copy-btn:hover { background: rgba(255,255,255,0.16); }
-
-  section { margin: 3rem 0; }
-  h2 {
-    font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.06em;
-    color: var(--text-dim); margin-bottom: 1rem; font-weight: 600;
-  }
+  .tab-note { color: var(--text-dim); font-size: 0.85rem; margin: 0.6rem 0 0; }
+  .tab-note a { color: var(--accent); }
 
   #demo-player { border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
 
@@ -88,20 +98,6 @@
   }
   .feature h3 { margin: 0 0 0.35rem; font-size: 1rem; }
   .feature p { margin: 0; color: var(--text-dim); font-size: 0.92rem; }
-
-  .install-options {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-    gap: 1rem;
-  }
-  .install-options .card {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
-    padding: 1rem 1.15rem;
-  }
-  .install-options code {
-    display: block; background: var(--code-bg); color: var(--code-text);
-    border-radius: 6px; padding: 0.5rem 0.6rem; font-size: 0.82rem;
-    margin-top: 0.5rem; overflow-x: auto; white-space: pre;
-  }
 
   footer {
     text-align: center; color: var(--text-dim); font-size: 0.9rem;
@@ -119,7 +115,7 @@
 <main>
   <header>
     <h1>backupctl</h1>
-    <p class="tagline">restic-based MySQL/PostgreSQL backups. A server dumps the databases, a client pulls them over SSH — no passwords, only a key.</p>
+    <p class="tagline">Back up your sites' and microservices' databases — MySQL and PostgreSQL — in three commands.</p>
     <div class="badges">
       <img src="https://img.shields.io/github/v/release/Solo-it/backupctl" alt="latest release">
       <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license">
@@ -127,10 +123,53 @@
     </div>
   </header>
 
-  <div class="install">
-    <span class="prompt">$</span><span id="install-cmd">curl -fsSL https://raw.githubusercontent.com/Solo-it/backupctl/main/backupctl-install.sh | sh</span>
-    <button class="copy-btn" onclick="navigator.clipboard.writeText(document.getElementById('install-cmd').textContent)">copy</button>
-  </div>
+  <section>
+    <div class="tabs" role="tablist">
+      <button class="tab-btn active" data-tab="oneliner">One-liner</button>
+      <button class="tab-btn" data-tab="apt">apt</button>
+      <button class="tab-btn" data-tab="brew">Homebrew</button>
+      <button class="tab-btn" data-tab="go">Go</button>
+      <button class="tab-btn" data-tab="binary">Binary</button>
+    </div>
+
+    <div class="tab-panel active" data-panel="oneliner">
+      <div class="code-block">
+<span class="prompt">$</span> curl -fsSL https://raw.githubusercontent.com/Solo-it/backupctl/main/backupctl-install.sh | sh
+        <button class="copy-btn" data-copy="curl -fsSL https://raw.githubusercontent.com/Solo-it/backupctl/main/backupctl-install.sh | sh">copy</button>
+      </div>
+      <p class="tab-note">Detects apt or Homebrew and uses those; otherwise downloads the matching binary from the latest release and verifies it against checksums.txt. Nothing hidden — see <a href="https://github.com/Solo-it/backupctl/blob/main/backupctl-install.sh">backupctl-install.sh</a>.</p>
+    </div>
+
+    <div class="tab-panel" data-panel="apt">
+      <div class="code-block">
+<span class="prompt">$</span> curl -fsSL https://solo-it.github.io/backupctl/apt/signing-key.asc | sudo gpg --dearmor -o /usr/share/keyrings/backupctl.gpg
+<span class="prompt">$</span> echo "deb [signed-by=/usr/share/keyrings/backupctl.gpg] https://solo-it.github.io/backupctl/apt stable main" | sudo tee /etc/apt/sources.list.d/backupctl.list
+<span class="prompt">$</span> sudo apt update && sudo apt install backupctl
+        <button class="copy-btn" data-copy="curl -fsSL https://solo-it.github.io/backupctl/apt/signing-key.asc | sudo gpg --dearmor -o /usr/share/keyrings/backupctl.gpg&#10;echo &quot;deb [signed-by=/usr/share/keyrings/backupctl.gpg] https://solo-it.github.io/backupctl/apt stable main&quot; | sudo tee /etc/apt/sources.list.d/backupctl.list&#10;sudo apt update && sudo apt install backupctl">copy</button>
+      </div>
+      <p class="tab-note">Debian/Ubuntu. GPG-signed — see <a href="https://github.com/Solo-it/backupctl/blob/main/SECURITY.md">SECURITY.md</a>.</p>
+    </div>
+
+    <div class="tab-panel" data-panel="brew">
+      <div class="code-block">
+<span class="prompt">$</span> brew install Solo-it/tap/backupctl
+        <button class="copy-btn" data-copy="brew install Solo-it/tap/backupctl">copy</button>
+      </div>
+      <p class="tab-note">macOS/Linux. For the short <code>brew install backupctl</code> form afterwards: <code>brew tap Solo-it/tap && brew trust solo-it/tap</code> once.</p>
+    </div>
+
+    <div class="tab-panel" data-panel="go">
+      <div class="code-block">
+<span class="prompt">$</span> go install github.com/Solo-it/backupctl/cmd/backupctl@latest
+        <button class="copy-btn" data-copy="go install github.com/Solo-it/backupctl/cmd/backupctl@latest">copy</button>
+      </div>
+      <p class="tab-note">Builds from source, no binary download.</p>
+    </div>
+
+    <div class="tab-panel" data-panel="binary">
+      <div class="code-block">See the <a href="https://github.com/Solo-it/backupctl/releases">Releases page</a> for .tar.gz/.zip binaries, .deb, .rpm and .apk packages.</div>
+    </div>
+  </section>
 
   <section>
     <h2>See it in action</h2>
@@ -159,30 +198,6 @@
     </div>
   </section>
 
-  <section>
-    <h2>Install</h2>
-    <div class="install-options">
-      <div class="card">
-        <strong>Debian / Ubuntu</strong>
-        <code>curl -fsSL https://solo-it.github.io/backupctl/apt/signing-key.asc | sudo gpg --dearmor -o /usr/share/keyrings/backupctl.gpg
-echo "deb [signed-by=/usr/share/keyrings/backupctl.gpg] https://solo-it.github.io/backupctl/apt stable main" | sudo tee /etc/apt/sources.list.d/backupctl.list
-sudo apt update && sudo apt install backupctl</code>
-      </div>
-      <div class="card">
-        <strong>Homebrew</strong>
-        <code>brew install Solo-it/tap/backupctl</code>
-      </div>
-      <div class="card">
-        <strong>Go</strong>
-        <code>go install github.com/Solo-it/backupctl/cmd/backupctl@latest</code>
-      </div>
-      <div class="card">
-        <strong>Binary / .deb / .rpm / .apk</strong>
-        <code>See the <a href="https://github.com/Solo-it/backupctl/releases">Releases page</a></code>
-      </div>
-    </div>
-  </section>
-
   <footer>
     <p><a class="gh-link" href="https://github.com/Solo-it/backupctl">github.com/Solo-it/backupctl</a></p>
     <p>MIT licensed · <code>backupctl --info</code> for the full guide (add <code>-lang=ru</code> for Russian)</p>
@@ -197,6 +212,24 @@ sudo apt update && sudo apt install backupctl</code>
     loop: true,
     idleTimeLimit: 2,
     fit: 'width'
+  });
+
+  document.querySelectorAll('.tab-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.remove('active'); });
+      document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('active'); });
+      btn.classList.add('active');
+      document.querySelector('.tab-panel[data-panel="' + btn.dataset.tab + '"]').classList.add('active');
+    });
+  });
+
+  document.querySelectorAll('.copy-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      navigator.clipboard.writeText(btn.dataset.copy);
+      var old = btn.textContent;
+      btn.textContent = 'copied';
+      setTimeout(function () { btn.textContent = old; }, 1200);
+    });
   });
 </script>
 </body>

@@ -1,13 +1,14 @@
 # backupctl
 
-Консольная утилита для настройки резервного копирования БД через
-[restic](https://restic.net/). Сервер (любая машина с MySQL/PostgreSQL)
-делает дампы БД и хранит их локально в restic-репозитории. Клиент (Mac
-или другой сервер) периодически забирает этот репозиторий к себе по
+Бэкапы баз данных ваших сайтов и микросервисов — MySQL и PostgreSQL —
+за три команды. Сервер (любая машина с MySQL/PostgreSQL) делает дампы БД
+и хранит их локально в [restic](https://restic.net/)-репозитории. Клиент
+(Mac или другой сервер) периодически забирает этот репозиторий к себе по
 `rsync` поверх SSH. Подключение — только по SSH-ключу, у служебного
 пользователя `backup-user` вообще нет пароля.
 
 English version: `backupctl --info` (default) or [README.md](https://github.com/Solo-it/backupctl/blob/main/cmd/backupctl/README.md).
+Сайт с живой демонстрацией: [solo-it.github.io/backupctl](https://solo-it.github.io/backupctl/).
 
 > На русский пока переведены только `--info`/`--help` (флаг `-lang=ru`).
 > Остальные сообщения программы (шаги `--init-server`, ошибки) — на
@@ -17,9 +18,16 @@ English version: `backupctl --info` (default) or [README.md](https://github.com/
 ## Установка
 
 ```bash
-# Одна команда (сама определит apt/Homebrew, иначе скачает бинарник с проверкой checksum)
 curl -fsSL https://raw.githubusercontent.com/Solo-it/backupctl/main/backupctl-install.sh | sh
+```
 
+Сама определит apt/Homebrew и использует их; иначе скачает подходящий
+бинарник с последнего релиза и проверит его по `checksums.txt`.
+
+<details>
+<summary>Другие способы установки (apt / Homebrew / Go / вручную)</summary>
+
+```bash
 # Debian/Ubuntu (apt-репозиторий, подписан GPG)
 curl -fsSL https://solo-it.github.io/backupctl/apt/signing-key.asc | sudo gpg --dearmor -o /usr/share/keyrings/backupctl.gpg
 echo "deb [signed-by=/usr/share/keyrings/backupctl.gpg] https://solo-it.github.io/backupctl/apt stable main" | sudo tee /etc/apt/sources.list.d/backupctl.list
@@ -35,8 +43,10 @@ brew install Solo-it/tap/backupctl
 # Go
 go install github.com/Solo-it/backupctl/cmd/backupctl@latest
 
-# или скачать бинарник/.deb/.rpm со страницы Releases
+# или скачать бинарник/.deb/.rpm/.apk со страницы Releases
 ```
+
+</details>
 
 ## Команды
 

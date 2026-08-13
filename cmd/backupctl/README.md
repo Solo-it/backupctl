@@ -1,19 +1,28 @@
 # backupctl
 
-A CLI tool for setting up database backups via [restic](https://restic.net/).
-The server (any machine with MySQL/PostgreSQL) dumps the databases and
-stores them locally in a restic repository. A client (your Mac or another
-server) periodically pulls that repository over `rsync` via SSH. The only
-way in is an SSH key — the dedicated `backup-user` has no password at all.
+Back up your sites' and microservices' databases — MySQL and PostgreSQL —
+in three commands. The server (any machine with MySQL/PostgreSQL) dumps
+the databases and stores them locally in a restic repository. A client
+(your Mac or another server) periodically pulls that repository over
+`rsync` via SSH. The only way in is an SSH key — the dedicated
+`backup-user` has no password at all.
 
 Русская версия: `backupctl --info -lang=ru` or [README.ru.md](https://github.com/Solo-it/backupctl/blob/main/cmd/backupctl/README.ru.md).
+Site with a live demo: [solo-it.github.io/backupctl](https://solo-it.github.io/backupctl/).
 
 ## Install
 
 ```bash
-# One-liner (detects apt/Homebrew, falls back to a checksummed binary download)
 curl -fsSL https://raw.githubusercontent.com/Solo-it/backupctl/main/backupctl-install.sh | sh
+```
 
+Detects apt or Homebrew and uses those; otherwise downloads the matching
+binary from the latest release and verifies it against `checksums.txt`.
+
+<details>
+<summary>Other install methods (apt / Homebrew / Go / manual)</summary>
+
+```bash
 # Debian/Ubuntu (apt repo, GPG-signed)
 curl -fsSL https://solo-it.github.io/backupctl/apt/signing-key.asc | sudo gpg --dearmor -o /usr/share/keyrings/backupctl.gpg
 echo "deb [signed-by=/usr/share/keyrings/backupctl.gpg] https://solo-it.github.io/backupctl/apt stable main" | sudo tee /etc/apt/sources.list.d/backupctl.list
@@ -29,8 +38,10 @@ brew install Solo-it/tap/backupctl
 # Go
 go install github.com/Solo-it/backupctl/cmd/backupctl@latest
 
-# or grab a binary/.deb/.rpm from the Releases page
+# or grab a binary/.deb/.rpm/.apk from the Releases page
 ```
+
+</details>
 
 ## Commands
 
