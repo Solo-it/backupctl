@@ -11,8 +11,9 @@ way in is an SSH key — the dedicated `backup-user` has no password at all.
 ## Install
 
 ```bash
-# Debian/Ubuntu (apt repo)
-echo "deb [trusted=yes] https://solo-it.github.io/backupctl/apt stable main" | sudo tee /etc/apt/sources.list.d/backupctl.list
+# Debian/Ubuntu (apt repo, GPG-signed)
+curl -fsSL https://solo-it.github.io/backupctl/apt/signing-key.asc | sudo gpg --dearmor -o /usr/share/keyrings/backupctl.gpg
+echo "deb [signed-by=/usr/share/keyrings/backupctl.gpg] https://solo-it.github.io/backupctl/apt stable main" | sudo tee /etc/apt/sources.list.d/backupctl.list
 sudo apt update && sudo apt install backupctl
 
 # Homebrew (macOS/Linux)

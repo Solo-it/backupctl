@@ -17,8 +17,9 @@ English version: `backupctl --info` (default) or [README.md](https://github.com/
 ## Установка
 
 ```bash
-# Debian/Ubuntu (apt-репозиторий)
-echo "deb [trusted=yes] https://solo-it.github.io/backupctl/apt stable main" | sudo tee /etc/apt/sources.list.d/backupctl.list
+# Debian/Ubuntu (apt-репозиторий, подписан GPG)
+curl -fsSL https://solo-it.github.io/backupctl/apt/signing-key.asc | sudo gpg --dearmor -o /usr/share/keyrings/backupctl.gpg
+echo "deb [signed-by=/usr/share/keyrings/backupctl.gpg] https://solo-it.github.io/backupctl/apt stable main" | sudo tee /etc/apt/sources.list.d/backupctl.list
 sudo apt update && sudo apt install backupctl
 
 # Homebrew (macOS/Linux)

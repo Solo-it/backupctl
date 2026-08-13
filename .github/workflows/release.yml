@@ -38,8 +38,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dpkg-dev
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends dpkg-dev
+      - name: Install dpkg-dev, apt-utils and gpg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends dpkg-dev apt-utils gnupg
+
+      - name: Import the signing key
+        run: |
+          echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
+          echo "default-key $(gpg --list-secret-keys --with-colons | awk -F: '/^fpr:/ {print $10; exit}')" >> ~/.gnupg/gpg.conf
 
       - name: Download .deb packages from this release
         env:
@@ -57,11 +62,22 @@ jobs:
           gzip -9c dists/stable/main/binary-amd64/Packages > dists/stable/main/binary-amd64/Packages.gz
           gzip -9c dists/stable/main/binary-arm64/Packages > dists/stable/main/binary-arm64/Packages.gz
 
-      # NOTE: this repo is unsigned (Release file has no GPG signature),
-      # so the install instructions use "deb [trusted=yes] ...". Add a
-      # signing step here (with a GPG_PRIVATE_KEY secret) if that's ever
-      # not acceptable — apt fully supports it, this is just the smallest
-      # thing that works for a single small package.
+      - name: Generate and sign the Release file
+        run: |
+          cd apt-repo
+          cat > apt-ftparchive.conf <<'EOF'
+          APT::FTPArchive::Release::Origin "Solo-it";
+          APT::FTPArchive::Release::Label "backupctl";
+          APT::FTPArchive::Release::Suite "stable";
+          APT::FTPArchive::Release::Codename "stable";
+          APT::FTPArchive::Release::Architectures "amd64 arm64";
+          APT::FTPArchive::Release::Components "main";
+          EOF
+          apt-ftparchive -c apt-ftparchive.conf release dists/stable > dists/stable/Release
+          gpg --clearsign -o dists/stable/InRelease dists/stable/Release
+          gpg -abs -o dists/stable/Release.gpg dists/stable/Release
+          cp ../apt-signing-key.asc signing-key.asc
+
       - name: Publish to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
