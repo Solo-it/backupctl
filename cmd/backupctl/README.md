@@ -227,6 +227,11 @@ adding a new language means a new `README.<lang>.md`, a new `usageText`
 variant, and translating the step/status messages sprinkled through
 `cmd/backupctl/*.go`).
 
+## Security
+
+apt package signing, key rotation, and what to do if `apt update` starts
+failing with a GPG error: [SECURITY.md](../../SECURITY.md).
+
 ## License
 
 [MIT](../../LICENSE)

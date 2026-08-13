@@ -219,6 +219,11 @@ go test -tags=integration ./...  # + реальные ssh-keygen/restic/rsync
 git tag v1.0.0 && git push origin v1.0.0
 ```
 
+## Безопасность
+
+Подпись apt-пакетов, ротация ключа и что делать, если `apt update` вдруг
+начал падать с GPG-ошибкой: [SECURITY.md](../../SECURITY.md) (на английском).
+
 ## Лицензия
 
 [MIT](../../LICENSE)
