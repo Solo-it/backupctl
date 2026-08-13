@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestShouldNotifyUpdate_NewerAvailable(t *testing.T) {
 	latest, notify := shouldNotifyUpdate("1.0.1", "v1.0.2")
@@ -60,5 +63,39 @@ func TestCompareVersions(t *testing.T) {
 		if got != c.want {
 			t.Errorf("compareVersions(%q, %q) = %d, want %d", c.a, c.b, got, c.want)
 		}
+	}
+}
+
+func TestBuildUpdateNoticeBox_NoColor_PlainAndAligned(t *testing.T) {
+	box := buildUpdateNoticeBox("1.0.1", "1.1.0", false)
+	if strings.Contains(box, "\x1b[") {
+		t.Errorf("no ANSI codes expected with color=false:\n%s", box)
+	}
+	for _, want := range []string{"1.0.1", "1.1.0", "brew upgrade backupctl", "releases", "┌", "└", "│"} {
+		if !strings.Contains(box, want) {
+			t.Errorf("box missing %q:\n%s", want, box)
+		}
+	}
+	lines := strings.Split(strings.Trim(box, "\n"), "\n")
+	width := -1
+	for _, l := range lines {
+		n := len([]rune(l))
+		if width == -1 {
+			width = n
+			continue
+		}
+		if n != width {
+			t.Errorf("box lines have inconsistent width: %d vs %d, line %q", n, width, l)
+		}
+	}
+}
+
+func TestBuildUpdateNoticeBox_Color(t *testing.T) {
+	box := buildUpdateNoticeBox("1.0.1", "1.1.0", true)
+	if !strings.Contains(box, "\x1b[") {
+		t.Errorf("expected ANSI codes with color=true:\n%q", box)
+	}
+	if !strings.Contains(box, "1.0.1") || !strings.Contains(box, "1.1.0") {
+		t.Errorf("version numbers lost:\n%q", box)
 	}
 }

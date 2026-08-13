@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/Solo-it/backupctl/internal/mdterm"
 )
 
 // version/commit/date are set via -ldflags at build time. GoReleaser's
@@ -21,16 +23,16 @@ var (
 
 func printVersion() {
 	fmt.Printf("backupctl %s (%s, %s)\n", version, commit, date)
-	printUpdateNoticeIfAny()
 }
 
 // printUpdateNoticeIfAny checks GitHub for a newer release and prints a
-// one-line nudge if there is one — same idea as pnpm/npm's update notice.
-// Called from --version, --gen-config and --init-server — all three are
-// always run directly by a human, never unattended. Deliberately NOT
-// called from anything the systemd timer runs (backup.sh doesn't invoke
-// backupctl at all, so this never comes up) — a backup tool has no
-// business making surprise outbound calls on an unattended schedule.
+// boxed nudge if there is one — same idea as pnpm/npm's update notice.
+// Deferred from main() for every command, so it always runs last and only
+// on success (os.Exit(1) on any error path skips deferred calls entirely,
+// which is exactly what we want — no update nagging after a failure).
+// Every command it fires from is always run directly by a human, never
+// unattended — backup.sh, which the systemd timer runs on a schedule,
+// never invokes backupctl at all, so this never comes up there.
 // Best-effort: any failure (offline, GitHub down, rate limited) is
 // silently ignored, this is a courtesy, not a feature you can depend on.
 func printUpdateNoticeIfAny() {
@@ -42,8 +44,55 @@ func printUpdateNoticeIfAny() {
 	if !notify {
 		return
 	}
-	fmt.Printf("\nA newer version is available: %s (you have %s)\n", latest, version)
-	fmt.Println("  brew upgrade backupctl  ·  sudo apt update && sudo apt install --only-upgrade backupctl  ·  https://github.com/Solo-it/backupctl/releases")
+	fmt.Print(buildUpdateNoticeBox(version, latest, mdterm.SupportsColor()))
+}
+
+// buildUpdateNoticeBox is a pure function so the layout can be tested
+// without a terminal. Bordered and colored like pnpm's update notice
+// when color is available; plain text (still readable) otherwise.
+func buildUpdateNoticeBox(current, latest string, color bool) string {
+	lines := []string{
+		fmt.Sprintf("Update available: %s -> %s", current, latest),
+		"brew upgrade backupctl",
+		"sudo apt update && sudo apt install --only-upgrade backupctl",
+		"https://github.com/Solo-it/backupctl/releases",
+	}
+
+	width := 0
+	for _, l := range lines {
+		if n := len([]rune(l)); n > width {
+			width = n
+		}
+	}
+
+	const (
+		yellow = "\x1b[33m"
+		bold   = "\x1b[1m"
+		reset  = "\x1b[0m"
+	)
+	paint := func(s string) string {
+		if !color {
+			return s
+		}
+		return yellow + s + reset
+	}
+
+	var sb strings.Builder
+	sb.WriteString("\n")
+	sb.WriteString(paint("┌─" + strings.Repeat("─", width) + "─┐"))
+	sb.WriteString("\n")
+	for i, l := range lines {
+		text := l
+		if color && i == 0 {
+			text = bold + l + reset // bold the headline
+		}
+		pad := width - len([]rune(l))
+		sb.WriteString(paint("│") + " " + text + strings.Repeat(" ", pad) + " " + paint("│"))
+		sb.WriteString("\n")
+	}
+	sb.WriteString(paint("└─" + strings.Repeat("─", width) + "─┘"))
+	sb.WriteString("\n")
+	return sb.String()
 }
 
 // shouldNotifyUpdate is a pure function: given the running version and the

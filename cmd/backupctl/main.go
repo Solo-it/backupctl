@@ -193,6 +193,11 @@ func extractLang(args []string) (lang string, rest []string) {
 }
 
 func main() {
+	// Fires last, only on a clean run — any error path below calls
+	// os.Exit(1) directly, which skips deferred calls entirely, so this
+	// never nags right after a failure.
+	defer printUpdateNoticeIfAny()
+
 	lang, args := extractLang(os.Args[1:])
 	if len(args) < 1 {
 		usage(lang)
