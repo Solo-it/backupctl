@@ -25,18 +25,18 @@ func printVersion() {
 	fmt.Printf("backupctl %s (%s, %s)\n", version, commit, date)
 }
 
-// printUpdateNoticeIfAny checks GitHub for a newer release and prints a
-// boxed nudge if there is one — same idea as pnpm/npm's update notice.
-// Deferred from main() for every command, so it always runs last and only
-// on success (os.Exit(1) on any error path skips deferred calls entirely,
-// which is exactly what we want — no update nagging after a failure).
-// Every command it fires from is always run directly by a human, never
-// unattended — backup.sh, which the systemd timer runs on a schedule,
-// never invokes backupctl at all, so this never comes up there.
+// printUpdateNoticeIfAny checks GitHub for a newer backupctl release and
+// prints a boxed nudge if there is one — same idea as pnpm/npm's update
+// notice. Deferred from main() for every command, so it always runs last
+// and only on success (os.Exit(1) on any error path skips deferred calls
+// entirely, which is exactly what we want — no update nagging after a
+// failure). Every command it fires from is always run directly by a
+// human, never unattended — backup.sh, which the systemd timer runs on a
+// schedule, never invokes backupctl at all, so this never comes up there.
 // Best-effort: any failure (offline, GitHub down, rate limited) is
 // silently ignored, this is a courtesy, not a feature you can depend on.
 func printUpdateNoticeIfAny() {
-	latestTag, ok := latestReleaseTag()
+	latestTag, ok := latestGitHubReleaseTag("Solo-it", "backupctl")
 	if !ok {
 		return
 	}
@@ -44,19 +44,22 @@ func printUpdateNoticeIfAny() {
 	if !notify {
 		return
 	}
-	fmt.Print(buildUpdateNoticeBox(version, latest, mdterm.SupportsColor()))
+	fmt.Print(buildNoticeBox(
+		fmt.Sprintf("Update available: %s -> %s", version, latest),
+		[]string{
+			"brew upgrade backupctl",
+			"sudo apt update && sudo apt install --only-upgrade backupctl",
+			"https://github.com/Solo-it/backupctl/releases",
+		},
+		mdterm.SupportsColor(),
+	))
 }
 
-// buildUpdateNoticeBox is a pure function so the layout can be tested
-// without a terminal. Bordered and colored like pnpm's update notice
-// when color is available; plain text (still readable) otherwise.
-func buildUpdateNoticeBox(current, latest string, color bool) string {
-	lines := []string{
-		fmt.Sprintf("Update available: %s -> %s", current, latest),
-		"brew upgrade backupctl",
-		"sudo apt update && sudo apt install --only-upgrade backupctl",
-		"https://github.com/Solo-it/backupctl/releases",
-	}
+// buildNoticeBox is a pure function so the layout can be tested without a
+// terminal. Bordered and colored like pnpm's update notice when color is
+// available; plain text (still readable) otherwise.
+func buildNoticeBox(headline string, body []string, color bool) string {
+	lines := append([]string{headline}, body...)
 
 	width := 0
 	for _, l := range lines {
@@ -153,9 +156,13 @@ func atoiSafe(s string) int {
 	return n
 }
 
-func latestReleaseTag() (string, bool) {
+// latestGitHubReleaseTag fetches the tag_name of a repo's latest GitHub
+// release (e.g. "v1.2.3"). Short timeout, no retries — a failure here
+// should never hold up or break the command that called it.
+func latestGitHubReleaseTag(owner, repo string) (string, bool) {
 	client := &http.Client{Timeout: 1500 * time.Millisecond}
-	req, err := http.NewRequest(http.MethodGet, "https://api.github.com/repos/Solo-it/backupctl/releases/latest", nil)
+	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", owner, repo)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return "", false
 	}

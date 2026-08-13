@@ -66,8 +66,11 @@ func TestCompareVersions(t *testing.T) {
 	}
 }
 
-func TestBuildUpdateNoticeBox_NoColor_PlainAndAligned(t *testing.T) {
-	box := buildUpdateNoticeBox("1.0.1", "1.1.0", false)
+func TestBuildNoticeBox_NoColor_PlainAndAligned(t *testing.T) {
+	box := buildNoticeBox("Update available: 1.0.1 -> 1.1.0", []string{
+		"brew upgrade backupctl",
+		"https://github.com/Solo-it/backupctl/releases",
+	}, false)
 	if strings.Contains(box, "\x1b[") {
 		t.Errorf("no ANSI codes expected with color=false:\n%s", box)
 	}
@@ -90,8 +93,10 @@ func TestBuildUpdateNoticeBox_NoColor_PlainAndAligned(t *testing.T) {
 	}
 }
 
-func TestBuildUpdateNoticeBox_Color(t *testing.T) {
-	box := buildUpdateNoticeBox("1.0.1", "1.1.0", true)
+func TestBuildNoticeBox_Color(t *testing.T) {
+	box := buildNoticeBox("Update available: 1.0.1 -> 1.1.0", []string{
+		"brew upgrade backupctl",
+	}, true)
 	if !strings.Contains(box, "\x1b[") {
 		t.Errorf("expected ANSI codes with color=true:\n%q", box)
 	}

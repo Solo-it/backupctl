@@ -38,6 +38,11 @@ const backupExcludesPath = "/root/backup-excludes.txt"
 func InitServer(cfg *Config) error {
 	steps := []func(*Config) error{
 		checkResticInstalled,
+		func(cfg *Config) error {
+			fmt.Println("[2/11] checking restic version")
+			printResticUpdateNoticeIfAny()
+			return nil
+		},
 		checkDumpToolsInstalled,
 		ensureBackupUser,
 		ensureRepoDirs,
@@ -81,18 +86,18 @@ Details: backupctl --info
 
 func checkResticInstalled(cfg *Config) error {
 	if commandExists("restic") {
-		fmt.Println("[1/10] restic is already installed")
+		fmt.Println("[1/11] restic is already installed")
 		return nil
 	}
 
-	fmt.Println("[1/10] restic not found — trying to install it via a package manager")
+	fmt.Println("[1/11] restic not found — trying to install it via a package manager")
 	if err := installRestic(); err != nil {
 		return fmt.Errorf("restic isn't installed and automatic install failed: %w — install it manually: https://restic.readthedocs.io/en/stable/020_installation.html", err)
 	}
 	if !commandExists("restic") {
 		return fmt.Errorf("restic still not found in PATH after installing — check it manually")
 	}
-	fmt.Println("[1/10] restic installed")
+	fmt.Println("[1/11] restic installed")
 	return nil
 }
 
@@ -159,7 +164,7 @@ func checkDumpToolsInstalled(cfg *Config) error {
 	if len(missing) > 0 {
 		return fmt.Errorf("not found in PATH: %s — install before running", strings.Join(missing, ", "))
 	}
-	fmt.Println("[2/10] database dump tools are installed")
+	fmt.Println("[3/11] database dump tools are installed")
 	return nil
 }
 
@@ -171,10 +176,10 @@ func ensureBackupUser(cfg *Config) error {
 		return fmt.Errorf("backup_user is not set in the config")
 	}
 	if userExists(cfg.BackupUser) {
-		fmt.Printf("[3/10] user %s already exists\n", cfg.BackupUser)
+		fmt.Printf("[4/11] user %s already exists\n", cfg.BackupUser)
 		return nil
 	}
-	fmt.Printf("[3/10] creating user %s (no password, SSH key only)\n", cfg.BackupUser)
+	fmt.Printf("[4/11] creating user %s (no password, SSH key only)\n", cfg.BackupUser)
 	if err := runShell("useradd", "--system", "--create-home", "--shell", "/usr/sbin/nologin", cfg.BackupUser); err != nil {
 		return err
 	}
@@ -190,7 +195,7 @@ func ensureRepoDirs(cfg *Config) error {
 		if fileExists(dir) {
 			continue
 		}
-		fmt.Printf("[4/10] creating directory %s\n", dir)
+		fmt.Printf("[5/11] creating directory %s\n", dir)
 		if err := os.MkdirAll(dir, 0o750); err != nil {
 			return fmt.Errorf("creating %s: %w", dir, err)
 		}
@@ -200,7 +205,7 @@ func ensureRepoDirs(cfg *Config) error {
 
 func setRepoPermissions(cfg *Config) error {
 	root := filepath.Dir(cfg.Restic.Repo)
-	fmt.Printf("[5/10] setting root:%s 750+setgid permissions on %s\n", cfg.BackupUser, root)
+	fmt.Printf("[6/11] setting root:%s 750+setgid permissions on %s\n", cfg.BackupUser, root)
 	if err := runShell("chown", "-R", "root:"+cfg.BackupUser, root); err != nil {
 		return err
 	}
@@ -212,19 +217,19 @@ func ensureResticPassword(cfg *Config) error {
 		return fmt.Errorf("restic.password_file is not set in the config")
 	}
 	if fileExists(cfg.Restic.PasswordFile) {
-		fmt.Printf("[6/10] restic password already exists (%s)\n", cfg.Restic.PasswordFile)
+		fmt.Printf("[7/11] restic password already exists (%s)\n", cfg.Restic.PasswordFile)
 		return nil
 	}
 
 	if cfg.ResticPasswordOverride != "" {
-		fmt.Printf("[6/10] writing the supplied restic password to %s\n", cfg.Restic.PasswordFile)
+		fmt.Printf("[7/11] writing the supplied restic password to %s\n", cfg.Restic.PasswordFile)
 		if err := os.WriteFile(cfg.Restic.PasswordFile, []byte(cfg.ResticPasswordOverride+"\n"), 0o600); err != nil {
 			return fmt.Errorf("writing password: %w", err)
 		}
 		return nil
 	}
 
-	fmt.Printf("[6/10] generating a restic password into %s\n", cfg.Restic.PasswordFile)
+	fmt.Printf("[7/11] generating a restic password into %s\n", cfg.Restic.PasswordFile)
 	pwd, err := generatePassword(32)
 	if err != nil {
 		return err
@@ -267,13 +272,13 @@ func ensureResticRepoInit(cfg *Config) error {
 	cmd.Env = append(os.Environ(), "RESTIC_PASSWORD_FILE="+cfg.Restic.PasswordFile)
 	out, err := cmd.CombinedOutput()
 	if err == nil {
-		fmt.Println("[7/10] restic repository is already initialized")
+		fmt.Println("[8/11] restic repository is already initialized")
 		return nil
 	}
 	if !strings.Contains(string(out), "unable to open config file") && !strings.Contains(string(out), "Is there a repository") {
 		return fmt.Errorf("checking the restic repository: %s: %w", strings.TrimSpace(string(out)), err)
 	}
-	fmt.Printf("[7/10] initializing restic repository %s\n", cfg.Restic.Repo)
+	fmt.Printf("[8/11] initializing restic repository %s\n", cfg.Restic.Repo)
 	initCmd := exec.Command("restic", "-r", cfg.Restic.Repo, "init")
 	initCmd.Env = append(os.Environ(), "RESTIC_PASSWORD_FILE="+cfg.Restic.PasswordFile)
 	initCmd.Stdout = os.Stdout
@@ -405,7 +410,7 @@ func writeBackupScript(cfg *Config, path string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("[8/10] writing %s\n", path)
+	fmt.Printf("[9/11] writing %s\n", path)
 	if err := os.WriteFile(path, []byte(script), 0o700); err != nil {
 		return fmt.Errorf("writing %s: %w", path, err)
 	}
@@ -450,7 +455,7 @@ func writeSystemdUnits(cfg *Config, servicePath, timerPath string) error {
 	service := buildSystemdService(backupScriptPath)
 	timer := buildSystemdTimer("Daily database backup timer", calendar+" UTC")
 
-	fmt.Println("[9/10] writing the systemd unit + timer")
+	fmt.Println("[10/11] writing the systemd unit + timer")
 	if err := os.WriteFile(servicePath, []byte(service), 0o644); err != nil {
 		return fmt.Errorf("writing %s: %w", servicePath, err)
 	}
@@ -461,7 +466,7 @@ func writeSystemdUnits(cfg *Config, servicePath, timerPath string) error {
 }
 
 func enableSystemdTimer(cfg *Config) error {
-	fmt.Println("[10/10] starting restic-backup.timer")
+	fmt.Println("[11/11] starting restic-backup.timer")
 	if err := runShell("systemctl", "enable", "restic-backup.timer"); err != nil {
 		return err
 	}

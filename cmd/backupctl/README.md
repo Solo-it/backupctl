@@ -107,6 +107,11 @@ error and a link to the manual install instructions. It also checks
 upfront that the dump tool for every `type:` in `databases:` is in PATH
 (`mysqldump` for `mysql`, `pg_dump` for `postgres`).
 
+If `restic` is already installed, `--init-server` also checks whether
+it's the latest version and prints a notice if not — it won't upgrade it
+for you (restic's own `restic self-update` does that), just points at
+it, same as the `backupctl` update notice below.
+
 **About the restic password — this matters if you have more than one server:**
 
 - **First `--init-server` run on this server, nothing specified** — a
